@@ -16,10 +16,10 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     
     # --- Páginas de pessoas
-    path('pessoas/', views.pessoa_list, name='pessoa_list'),
-    path('pessoas/nova/', views.pessoa_create, name='pessoa_create'),
-    path('pessoas/<int:pk>/editar/', views.pessoa_update, name='pessoa_update'),
-    path('pessoas/<int:pk>/excluir/', views.pessoa_delete, name='pessoa_delete'),
+    path('pessoas/', views.PessoaListView.as_view(), name='pessoa_list'),
+    path('pessoas/nova/', views.PessoaCreateView.as_view(), name='pessoa_create'),
+    path('pessoas/<int:pk>/editar/', views.PessoaUpdateView.as_view(), name='pessoa_update'),
+    path('pessoas/<int:pk>/excluir/', views.PessoaDeleteView.as_view(), name='pessoa_delete'),
     path('pessoas/<int:pk>/historico/', views.pessoa_historico, name='pessoa_historico'),
 
     #Páginas de chaves

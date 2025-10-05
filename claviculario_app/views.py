@@ -12,6 +12,11 @@ import csv
 from django.http import HttpResponse
 from openpyxl import Workbook
 
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+
+
 
 @login_required
 def view_retirada(request):
@@ -242,6 +247,78 @@ def dashboard(request):
 # VIEWS DE PESSOAS
 #------------------------------------------------------------------
 #VIEW PARA SERVIR COMO API DE FILTRO DE CHAVES
+
+# claviculario_app/views.py
+
+# --- NOVAS CLASS-BASED VIEWS PARA O CRUD DE PESSOAS ---
+
+class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = Pessoa
+    template_name = 'claviculario_app/pessoa_list.html'
+    context_object_name = 'pessoas_page'
+    paginate_by = 15
+    permission_required = 'claviculario_app.view_pessoa'
+
+    def get_queryset(self):
+        return Pessoa.objects.filter(ativa=True).order_by('nome')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pagina_ativa'] = 'pessoas'
+        return context
+
+
+class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = Pessoa
+    form_class = PessoaForm
+    template_name = 'claviculario_app/pessoa_form.html'
+    success_url = reverse_lazy('pessoa_list')
+    permission_required = 'claviculario_app.add_pessoa'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = 'Adicionar Nova Pessoa'
+        context['pagina_ativa'] = 'pessoas'
+        return context
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Pessoa cadastrada com sucesso!')
+        return super().form_valid(form)
+
+
+class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    model = Pessoa
+    form_class = PessoaForm
+    template_name = 'claviculario_app/pessoa_form.html'
+    success_url = reverse_lazy('pessoa_list')
+    permission_required = 'claviculario_app.change_pessoa'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f'Editar Pessoa: {self.object.nome}'
+        context['pagina_ativa'] = 'pessoas'
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Dados da pessoa atualizados com sucesso!')
+        return super().form_valid(form)
+
+
+class PessoaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = Pessoa
+    template_name = 'claviculario_app/pessoa_confirm_delete.html'
+    success_url = reverse_lazy('pessoa_list')
+    permission_required = 'claviculario_app.delete_pessoa'
+    
+    def form_valid(self, form):
+        messages.success(self.request, f"Pessoa '{self.object.nome}' excluída com sucesso.")
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pagina_ativa'] = 'pessoas'
+        return context
+    
 @login_required
 def filtrar_chaves_por_local(request):
     local_id = request.GET.get('local_id')
@@ -259,75 +336,6 @@ def filtrar_chaves_por_local(request):
     data = [{'id': c.id, 'text': str(c)} for c in chaves]
 
     return JsonResponse({'results': data})
-
-
-#VIEW PARA LISTAR PESSOAS
-@permission_required('claviculario_app.view_pessoa', raise_exception=True)
-def pessoa_list(request):
-    pessoas_list = Pessoa.objects.filter(ativa=True).order_by('nome')
-    contexto = {
-        'pessoas_page': paginador(request,pessoas_list),
-        'pagina_ativa': 'pessoas'
-    }
-    return render(request, 'claviculario_app/pessoa_list.html', contexto)
-
-# VIEW PARA CRIAR UMA NOVA PESSOA
-@permission_required('claviculario_app.add_pessoa', raise_exception=True)
-def pessoa_create(request):
-    if request.method == 'POST':
-        form = PessoaForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Pessoa cadastrada com sucesso!')
-            return redirect('pessoa_list')
-    else:
-        form = PessoaForm()
-    
-    contexto = {
-        'form': form,
-        'title': 'Adicionar Nova Pessoa',
-        'pagina_ativa': 'pessoas'
-    }
-    return render(request, 'claviculario_app/pessoa_form.html', contexto)
-
-# VIEW PARA ATUALIZAR UMA PESSOA EXISTENTE
-@permission_required('claviculario_app.change_pessoa', raise_exception=True)
-def pessoa_update(request, pk):
-    pessoa = get_object_or_404(Pessoa, pk=pk)
-    if request.method == 'POST':
-        form = PessoaForm(request.POST, instance=pessoa)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Dados da pessoa atualizados com sucesso!')
-            return redirect('pessoa_list')
-    else:
-        form = PessoaForm(instance=pessoa)
-    
-    contexto = {
-        'form': form,
-        'title': f'Editar Pessoa: {pessoa.nome}',
-        'pagina_ativa': 'pessoas'
-    }
-    return render(request, 'claviculario_app/pessoa_form.html', contexto)
-
-# VIEW PARA EXCLUIR UMA PESSOA
-@permission_required('claviculario_app.delete_pessoa', raise_exception=True)
-def pessoa_delete(request, pk):
-    pessoa = get_object_or_404(Pessoa, pk=pk)
-    
-    # Se o formulário de confirmação foi enviado (método POST)
-    if request.method == 'POST':
-        nome_pessoa = pessoa.nome # Guarda o nome antes de deletar
-        pessoa.delete()
-        messages.success(request, f"Pessoa '{nome_pessoa}' excluída com sucesso.")
-        return redirect('pessoa_list')
-    
-    # Se for a primeira vez que acessa (método GET), apenas mostra a página de confirmação
-    contexto = {
-        'pessoa': pessoa,
-        'pagina_ativa': 'pessoas'
-    }
-    return render(request, 'claviculario_app/pessoa_confirm_delete.html', contexto)
 
 @permission_required('claviculario_app.view_pessoa', raise_exception=True)
 def pessoa_historico(request, pk):
