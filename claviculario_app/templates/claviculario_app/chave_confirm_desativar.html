@@ -1,0 +1,25 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Confirmar Exclusão de Chave</h1>
+
+<div class="card shadow-sm border-danger">
+    <div class="card-body">
+        <p class="fs-5">Você tem certeza que deseja excluir permanentemente a chave abaixo?</p>
+        
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">{{ chave.descricao }}</h4>
+            <p class="mb-0">Local: {{ chave.local.nome }}</p>
+        </div>
+        
+        <p class="text-danger fw-bold">Atenção: Esta ação não pode ser desfeita.</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sim, tenho certeza, excluir</button>
+            <a href="{% url 'chave_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+
+{% endblock content %}

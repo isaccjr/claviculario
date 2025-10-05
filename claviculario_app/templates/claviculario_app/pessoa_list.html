@@ -1,0 +1,115 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+{% if perms.claviculario_app.add_pessoa %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="m-0">Gestão de Pessoas</h1>
+    <a href="{% url 'pessoa_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>Nova Pessoa
+    </a>
+</div>
+{% else %}
+<h1 class="mb-4">Pessoas Cadastradas</h1>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Nome Completo</th>
+                        <th>Empresa</th>
+                        <th>CPF / SARAN</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pessoa in pessoas_page %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'pessoa_historico' pessoa.pk %}">
+                                {{ pessoa.nome }}
+                            </a>
+                        </td>
+                        <td>{{ pessoa.empresa|default:"N/A" }}</td>
+                        <td>{{ pessoa.cpf_saran }}</td>
+              
+                <td class="text-center">
+                    {% if perms.claviculario_app.change_pessoa %}
+                    <a href="{% url 'pessoa_update' pessoa.pk %}" class="btn btn-sm btn-outline-warning me-1">
+                        <i class="bi bi-pencil-fill"></i> Editar
+                    </a>
+                    {% endif %}
+                    {% if perms.claviculario_app.delete_pessoa %}
+                    <a href="{% url 'pessoa_delete' pessoa.pk %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash-fill"></i> Excluir
+                    </a>
+                    {% endif %}
+                </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">Nenhuma pessoa cadastrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% if pessoas_page.has_other_pages %}
+        <div class="card-footer d-flex justify-content-end">
+            <nav aria-label="Navegação de páginas">
+                <ul class="pagination mb-0">
+                    {% if pessoas_page.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ locais_page.previous_page_number }}">
+                                Anterior</a>
+                            </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                Anterior
+                            </span>
+                        </li>
+                        {% endif %}
+                    {% for page_num in pessoas_page.paginator.get_elided_page_range %}
+                        {% if locais_page.number == page_num %}
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">
+                                {{ page_num }}
+                            </span>
+                        </li>
+                        {% elif page_num == pessoas_page.paginator.ELLIPSIS %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    {{ page_num }}
+                                </span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_num }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if pessoas_page.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ locais_page.next_page_number }}">
+                                Próxima
+                            </a>
+                        </li>
+                    {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    Próxima
+                                </span>
+                            </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}

@@ -1,0 +1,312 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Registrar Retirada de Chave</h1>
+
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <form id="formRetiradaPrincipal" method="post" action="{% url 'view_retirada' %}">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label for="filtro-local" class="form-label">Local</label>
+            <select id="filtro-local" class="form-select">
+                <option value="" selected>Primeiro, selecione um local...</option>
+                {% for local in locais %}
+                    <option value="{{ local.id }}">{{ local.nome }}</option>
+                {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.chave.id_for_label }}" class="form-label">{{ form.chave.label }}</label>
+            {{ form.chave }}
+          </div>
+          
+          <div class="mb-3 border rounded p-3 bg-light">
+              <label class="form-label fw-bold">Filtrar Pessoa</label>
+              <div class="row g-2">
+                  <div class="col-md-6">
+                      <input type="text" id="filtro-nome" class="form-control" placeholder="Filtrar por nome...">
+                  </div>
+                  <div class="col-md-6">
+                      <input type="text" id="filtro-empresa" class="form-control" placeholder="Filtrar por empresa...">
+                  </div>
+              </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="{{ form.pessoa.id_for_label }}" class="form-label d-flex justify-content-between">
+              <span>{{ form.pessoa.label }}</span>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCadastroPessoa">
+                <i class="bi bi-plus-circle me-1"></i> Nova Pessoa
+              </button>
+            </label>
+            {{ form.pessoa }}
+          </div>
+          
+          <div class="mb-3">
+            <label for="{{ form.data_retirada.id_for_label }}" class="form-label">{{ form.data_retirada.label }}</label>
+            {{ form.data_retirada }}
+          </div>
+          
+          <div class="mb-3">
+            <label for="{{ form.previsao_devolucao.id_for_label }}" class="form-label">{{ form.previsao_devolucao.label }}</label>
+            {{ form.previsao_devolucao }}
+          </div>
+
+          <div class="mb-3">
+            <label for="{{ form.observacao.id_for_label }}" class="form-label">{{ form.observacao.label }}</label>
+            {{ form.observacao }}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Registrar Retirada</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-header"><h5 class="my-0 fw-normal">Chaves Emprestadas Atualmente</h5></div>
+      <div class="card-body p-0">
+        {% if emprestimos_ativos %}
+        <div class="table-responsive">
+          <table class="table table-striped table-hover mb-0">
+            <thead><tr><th>Chave</th><th>Responsável</th><th>Data/Hora Retirada</th></tr></thead>
+            <tbody>
+              {% for emprestimo in emprestimos_ativos %}
+              <tr>
+                <td>{{ emprestimo.chave.descricao }}</td>
+                <td>{{ emprestimo.pessoa.nome }}</td>
+                <td>{{ emprestimo.data_retirada|date:"d/m/Y H:i" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-center p-3">Nenhuma chave emprestada no momento.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="modalCadastroPessoa" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="modalLabel">Cadastrar Nova Pessoa</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <form id="formPessoa" action="{% url 'cadastrar_pessoa' %}" method="post">
+                    {% csrf_token %}
+                    <div id="modal-errors" class="alert alert-danger d-none"></div>
+                    <div class="mb-3"><label for="{{ form_pessoa.nome.id_for_label }}" class="form-label">{{ form_pessoa.nome.label }}</label>{{ form_pessoa.nome }}</div>
+                    <div class="mb-3"><label for="{{ form_pessoa.empresa.id_for_label }}" class="form-label">{{ form_pessoa.empresa.label }}</label>{{ form_pessoa.empresa }}</div>
+                    <div class="mb-3"><label for="{{ form_pessoa.cpf_saran.id_for_label }}" class="form-label">{{ form_pessoa.cpf_saran.label }}</label>{{ form_pessoa.cpf_saran }}</div>
+                    <div class="mb-3"><label for="{{ form_pessoa.pin.id_for_label }}" class="form-label">{{ form_pessoa.pin.label }}</label>{{ form_pessoa.pin }}</div>
+                    <div class="mb-3"><label for="{{ form_pessoa.confirmar_pin.id_for_label }}" class="form-label">{{ form_pessoa.confirmar_pin.label }}</label>{{ form_pessoa.confirmar_pin }}</div>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnSalvarPessoa">Salvar</button></div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="modalConfirmacaoPin" tabindex="-1" aria-labelledby="modalPinLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="modalPinLabel">Confirmar Retirada</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <div id="pin-errors" class="alert alert-danger d-none"></div>
+                <p>Por favor, peça para <strong id="nomePessoaPin"></strong> confirmar a retirada da chave <strong id="nomeChavePin"></strong> digitando seu PIN.</p>
+                <form id="formConfirmacaoPin">
+                    {% csrf_token %}
+                    <input type="hidden" name="chave_id" id="pin-chave-id">
+                    <input type="hidden" name="pessoa_id" id="pin-pessoa-id">
+                    <input type="hidden" name="data_retirada" id="pin-data-retirada">
+                    <input type="hidden" name="observacao" id="pin-observacao">
+                    <input type="hidden" name="previsao_devolucao" id="pin-previsao-devolucao">
+                    <label for="pin-input" class="form-label">PIN de Confirmação</label>
+                    <input type="password" name="pin" class="form-control" id="pin-input" autocomplete="off" required>
+                </form>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnConfirmarRetirada">Confirmar</button></div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // =================================================================
+    // SETUP DE VARIÁVEIS GLOBAIS DO SCRIPT
+    // =================================================================
+    const selectPessoa = document.getElementById('{{ form.pessoa.id_for_label }}');
+    const selectChave = document.getElementById('{{ form.chave.id_for_label }}'); // Novo: referência para o select de chaves
+    const filtroLocal = document.getElementById('filtro-local'); // Novo: referência para o filtro de local
+    
+    // Elementos do Modal de Cadastro de Pessoa
+    const formPessoa = document.getElementById('formPessoa');
+    const btnSalvarPessoa = document.getElementById('btnSalvarPessoa');
+    const modalCadastroElement = document.getElementById('modalCadastroPessoa');
+    const modalCadastro = new bootstrap.Modal(modalCadastroElement);
+    const modalErrors = document.getElementById('modal-errors');
+
+    // Elementos do Filtro de Pessoas
+    const filtroNomeInput = document.getElementById('filtro-nome');
+    const filtroEmpresaInput = document.getElementById('filtro-empresa');
+
+    // Elementos do Fluxo de Retirada e PIN
+    const formRetiradaPrincipal = document.getElementById('formRetiradaPrincipal');
+    const modalPinElement = document.getElementById('modalConfirmacaoPin');
+    const modalPin = new bootstrap.Modal(modalPinElement);
+    const btnConfirmarRetirada = document.getElementById('btnConfirmarRetirada');
+    const formConfirmacaoPin = document.getElementById('formConfirmacaoPin');
+
+
+    // =================================================================
+    // LÓGICA 1: FILTRO DE CHAVES POR LOCAL (NOVO)
+    // =================================================================
+    if (filtroLocal) {
+        filtroLocal.addEventListener('change', function() {
+            const localId = this.value;
+            const url = `{% url 'filtrar_chaves_por_local' %}?local_id=${localId}`;
+            
+            // Desabilita o select de chaves enquanto carrega
+            selectChave.disabled = true;
+            selectChave.innerHTML = '<option value="">Carregando chaves...</option>';
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    selectChave.innerHTML = ''; // Limpa as opções
+                    if (data.results.length > 0) {
+                        selectChave.add(new Option('Selecione uma chave...', ''));
+                        data.results.forEach(chave => {
+                            // Usamos chave.text que já vem formatado do backend
+                            selectChave.add(new Option(chave.text, chave.id));
+                        });
+                    } else {
+                        selectChave.innerHTML = '<option value="">Nenhuma chave disponível para este local</option>';
+                    }
+                    selectChave.disabled = false; // Habilita o select novamente
+                });
+        });
+    }
+
+    // =================================================================
+    // LÓGICA 2: MODAL DE CADASTRO DE PESSOA
+    // =================================================================
+    if (btnSalvarPessoa && formPessoa) {
+        btnSalvarPessoa.addEventListener('click', function() {
+            const formData = new FormData(formPessoa);
+            fetch(formPessoa.action, { method: 'POST', body: formData, headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') } })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const newOption = new Option(data.pessoa.nome, data.pessoa.id, true, true);
+                    selectPessoa.add(newOption);
+                    formPessoa.reset();
+                    modalCadastro.hide();
+                    modalErrors.classList.add('d-none');
+                } else {
+                    const errors = JSON.parse(data.errors);
+                    let errorHtml = '<ul>';
+                    for (const field in errors) { errors[field].forEach(error => { errorHtml += `<li>${error.message}</li>`; }); }
+                    errorHtml += '</ul>';
+                    modalErrors.innerHTML = errorHtml;
+                    modalErrors.classList.remove('d-none');
+                }
+            });
+        });
+    }
+
+    // =================================================================
+    // LÓGICA 3: FILTRO DINÂMICO DE PESSOAS
+    // =================================================================
+    function atualizarPessoas() {
+        const nome = filtroNomeInput.value;
+        const empresa = filtroEmpresaInput.value;
+        const url = `{% url 'filtrar_pessoas' %}?nome=${nome}&empresa=${empresa}`;
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const valorSelecionadoAnteriormente = selectPessoa.value;
+                selectPessoa.innerHTML = '';
+                selectPessoa.add(new Option('---------', ''));
+                data.results.forEach(pessoa => { selectPessoa.add(new Option(pessoa.text, pessoa.id)); });
+                selectPessoa.value = valorSelecionadoAnteriormente;
+            });
+    }
+
+    if (filtroNomeInput && filtroEmpresaInput) {
+        filtroNomeInput.addEventListener('keyup', atualizarPessoas);
+        filtroEmpresaInput.addEventListener('keyup', atualizarPessoas);
+    }
+
+    // =================================================================
+    // LÓGICA 4: SUBMISSÃO DO FORMULÁRIO PRINCIPAL (ABRIR MODAL DE PIN)
+    // =================================================================
+    if (formRetiradaPrincipal) {
+        formRetiradaPrincipal.addEventListener('submit', function(event) {
+            event.preventDefault(); // Impede o envio normal do formulário
+
+            const chaveSelect = document.getElementById('{{ form.chave.id_for_label }}');
+            const dataRetiradaInput = document.getElementById('{{ form.data_retirada.id_for_label }}');
+            const observacaoInput = document.getElementById('{{ form.observacao.id_for_label }}');
+            const previsaoDevolucaoInput = document.getElementById('{{ form.previsao_devolucao.id_for_label }}');
+            
+            if (!chaveSelect.value || !selectPessoa.value) {
+                alert('Por favor, selecione uma chave e uma pessoa.');
+                return;
+            }
+
+            document.getElementById('nomePessoaPin').textContent = selectPessoa.options[selectPessoa.selectedIndex].text;
+            document.getElementById('nomeChavePin').textContent = `"${chaveSelect.options[chaveSelect.selectedIndex].text}"`;
+            document.getElementById('pin-chave-id').value = chaveSelect.value;
+            document.getElementById('pin-pessoa-id').value = selectPessoa.value;
+            document.getElementById('pin-data-retirada').value = dataRetiradaInput.value;
+            document.getElementById('pin-observacao').value = observacaoInput.value;
+            document.getElementById('pin-previsao-devolucao').value = previsaoDevolucaoInput ? previsaoDevolucaoInput.value : '';
+            
+            document.getElementById('pin-errors').classList.add('d-none');
+            document.getElementById('pin-input').value = '';
+            document.getElementById('pin-input').focus(); // Foca no campo de PIN
+            modalPin.show();
+        });
+    }
+
+    // =================================================================
+    // LÓGICA 5: CONFIRMAÇÃO DA RETIRADA (ENVIAR PIN)
+    // =================================================================
+    if (btnConfirmarRetirada) {
+        btnConfirmarRetirada.addEventListener('click', function() {
+            const formData = new FormData(formConfirmacaoPin);
+            fetch("{% url 'verificar_pin_e_registrar' %}", {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': formData.get('csrfmiddlewaretoken') },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    modalPin.hide();
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    const pinErrors = document.getElementById('pin-errors');
+                    pinErrors.textContent = data.message;
+                    pinErrors.classList.remove('d-none');
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock scripts %}

@@ -1,0 +1,67 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="m-0">Histórico de Empréstimos</h1>
+    <p class="lead text-muted">{{ chave.descricao }} (Local: {{ chave.local.nome }})</p>
+</div>
+
+
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="my-0 fw-normal">Registros de Retirada</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Responsável</th>
+                        <th>CPF/SARAN</th>
+                        <th>Data da Retirada</th>
+                        <th>Data da Devolução</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emprestimo in emprestimos_page %}
+                    <tr>
+                        <td>{{ emprestimo.pessoa.nome }}</td>
+                        <td>{{ emprestimo.pessoa.cpf_saran }}</td>
+                        <td>{{ emprestimo.data_retirada|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if emprestimo.data_devolucao %}
+                                {{ emprestimo.data_devolucao|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center p-4">Nenhum empréstimo registrado para esta chave.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if emprestimos_page.has_other_pages %}
+    <div class="card-footer d-flex justify-content-end">
+        <nav aria-label="Navegação de páginas">
+            <ul class="pagination mb-0">
+                {% if emprestimos_page.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ emprestimos_page.previous_page_number }}">Anterior</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Anterior</span></li>{% endif %}
+                {% for page_num in emprestimos_page.paginator.get_elided_page_range %}{% if emprestimos_page.number == page_num %}<li class="page-item active" aria-current="page"><span class="page-link">{{ page_num }}</span></li>{% elif page_num == emprestimos_page.paginator.ELLIPSIS %}<li class="page-item disabled"><span class="page-link">{{ page_num }}</span></li>{% else %}<li class="page-item"><a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a></li>{% endif %}{% endfor %}
+                {% if emprestimos_page.has_next %}<li class="page-item"><a class="page-link" href="?page={{ emprestimos_page.next_page_number }}">Próxima</a></li>{% else %}<li class="page-item disabled"><span class="page-link">Próxima</span></li>{% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'chave_list' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar para a Lista de Chaves
+    </a>
+</div>
+{% endblock content %}

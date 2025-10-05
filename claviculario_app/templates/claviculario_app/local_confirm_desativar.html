@@ -1,0 +1,25 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Confirmar Desativação de Local</h1>
+
+<div class="card shadow-sm border-danger">
+    <div class="card-body">
+        <p class="fs-5">Você tem certeza que deseja desativar o local abaixo?</p>
+        <p>Ele não aparecerá mais nas listas de seleção, mas o histórico de chaves associadas a ele será mantido.</p>
+        
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">{{ local.nome }}</h4>
+        </div>
+        
+        <p class="text-danger fw-bold">Atenção: Esta ação não pode ser desfeita diretamente por esta tela.</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sim, tenho certeza, desativar</button>
+            <a href="{% url 'local_list' %}" class="btn btn-secondary">Cancelar</a>
+        </form>
+    </div>
+</div>
+
+{% endblock content %}

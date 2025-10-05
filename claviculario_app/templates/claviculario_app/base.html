@@ -1,0 +1,113 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claviculário HFAB</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { display: flex; min-height: 100vh; flex-direction: row; background-color: #f8f9fa; }
+    .sidebar { width: 280px; min-height: 100vh; }
+    .content { flex-grow: 1; padding: 30px; }
+    .sidebar .nav-link { font-size: 1.1rem; color: #c7d5e0; }
+    .sidebar .nav-link.active { color: #fff; background-color: #0d6efd; }
+    .sidebar .nav-link:hover:not(.active) { background-color: #495057; }
+    .sidebar .navbar-brand img { max-height: 40px; }
+    .card .border-left-primary { border-left: 0.25rem solid #4e73df !important; }
+    .card .border-left-success { border-left: 0.25rem solid #1cc88a !important; }
+    .card .border-left-info { border-left: 0.25rem solid #36b9cc !important; }
+    .card .border-left-danger { border-left: 0.25rem solid #e74a3b !important; }
+    .text-xs { font-size: .7rem; }
+    .text-gray-300 { color: #dddfeb !important; }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar d-flex flex-column flex-shrink-0 p-3 text-white bg-dark">
+    <a href="{% url 'dashboard' %}" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none navbar-brand fs-4">
+      <img src="{% static 'claviculario_app/images/domgif.webp' %}" alt="Logo HFAB" class="me-2">
+      Claviculário
+    </a>
+    <hr>
+    <ul class="nav nav-pills flex-column mb-auto">
+      <li class="nav-item">
+        <a href="{% url 'dashboard' %}" class="nav-link {% if pagina_ativa == 'dashboard' %}active{% endif %}">
+          <i class="bi bi-grid-1x2-fill me-2"></i>Dashboard
+        </a>
+      </li>
+
+      {% if perms.claviculario_app.view_pessoa or perms.claviculario_app.view_chave or perms.claviculario_app.view_local %}
+      <li class="nav-item">
+        <a href="#submenu-gerenciamento" data-bs-toggle="collapse" class="nav-link text-white">
+          <i class="bi bi-stack me-2"></i>Gerenciamento
+        </a>
+        <ul class="collapse nav flex-column ms-3 {% if pagina_ativa in 'pessoas,chaves,locais' %}show{% endif %}" id="submenu-gerenciamento">
+            {% if perms.claviculario_app.view_pessoa %}
+            <li><a href="{% url 'pessoa_list' %}" class="nav-link {% if pagina_ativa == 'pessoas' %}active{% endif %}"><i class="bi bi-people-fill me-2"></i> Pessoas</a></li>
+            {% endif %}
+            {% if perms.claviculario_app.view_chave %}
+            <li><a href="{% url 'chave_list' %}" class="nav-link {% if pagina_ativa == 'chaves' %}active{% endif %}"><i class="bi bi-key-fill me-2"></i> Chaves</a></li>
+            {% endif %}
+            {% if perms.claviculario_app.view_local %}
+            <li><a href="{% url 'local_list' %}" class="nav-link {% if pagina_ativa == 'locais' %}active{% endif %}"><i class="bi bi-geo-alt-fill me-2"></i> Locais</a></li>
+            {% endif %}
+        </ul>
+      </li>
+      <hr>
+      {% endif %}
+      <li class="nav-item">
+        <a href="{% url 'view_retirada' %}" class="nav-link {% if pagina_ativa == 'retirada' %}active{% endif %}">
+          <i class="bi bi-box-arrow-up-right me-2"></i>Registrar Retirada
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{% url 'view_devolucao' %}" class="nav-link {% if pagina_ativa == 'devolucao' %}active{% endif %}">
+          <i class="bi bi-box-arrow-in-down-left me-2"></i>Registrar Devolução
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="{% url 'view_relatorio' %}" class="nav-link {% if pagina_ativa == 'relatorio' %}active{% endif %}">
+          <i class="bi bi-file-earmark-text me-2"></i>Relatório de Empréstimos
+        </a>
+      </li>
+    </ul>
+    <hr>
+    
+    {% if user.is_authenticated %}
+    <div class="dropdown">
+      <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-person-circle fs-4 me-2"></i>
+        <strong>{{ user.username }}</strong>
+      </a>
+      <ul class="dropdown-menu dropdown-menu-dark text-small shadow" aria-labelledby="dropdownUser1">
+        <li>
+          <form action="{% url 'logout' %}" method="post" class="d-flex">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-item">Sair</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="content">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  
+  {% block scripts %}{% endblock %}
+
+</body>
+</html>

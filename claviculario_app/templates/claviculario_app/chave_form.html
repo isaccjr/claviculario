@@ -1,0 +1,30 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ title }}</h1>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ form.descricao.id_for_label }}" class="form-label">{{ form.descricao.label }}</label>
+                {{ form.descricao }}
+                {% if form.descricao.errors %}
+                    <div class="text-danger"><small>{{ form.descricao.errors.as_text }}</small></div>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <label for="{{ form.local.id_for_label }}" class="form-label">{{ form.local.label }}</label>
+                {{ form.local }}
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Salvar</button>
+                <a href="{% url 'chave_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}

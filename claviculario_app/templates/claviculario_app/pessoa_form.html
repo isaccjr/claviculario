@@ -1,0 +1,50 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">{{ title }}</h1>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="{{ form.nome.id_for_label }}" class="form-label">{{ form.nome.label }}</label>
+                {{ form.nome }}
+            </div>
+            <div class="mb-3">
+                <label for="{{ form.empresa.id_for_label }}" class="form-label">{{ form.empresa.label }}</label>
+                {{ form.empresa }}
+            </div>
+            <div class="mb-3">
+                <label for="{{ form.cpf_saran.id_for_label }}" class="form-label">{{ form.cpf_saran.label }}</label>
+                {{ form.cpf_saran }}
+                {% if form.cpf_saran.errors %}
+                    <div class="text-danger"><small>{{ form.cpf_saran.errors.as_text }}</small></div>
+                {% endif %}
+            </div>
+            <hr>
+            <p class="text-muted">Defina um PIN de 4 a 6 dígitos para a pessoa. Este PIN será solicitado no momento da retirada da chave.</p>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.pin.id_for_label }}" class="form-label">{{ form.pin.label }}</label>
+                    {{ form.pin }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="{{ form.confirmar_pin.id_for_label }}" class="form-label">{{ form.confirmar_pin.label }}</label>
+                    {{ form.confirmar_pin }}
+                    {% if form.confirmar_pin.errors %}
+                        <div class="text-danger"><small>{{ form.confirmar_pin.errors.as_text }}</small></div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">Salvar</button>
+                <a href="{% url 'pessoa_list' %}" class="btn btn-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock content %}

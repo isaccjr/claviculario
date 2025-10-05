@@ -1,0 +1,104 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Dashboard</h1>
+
+<div class="row">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs fw-bold text-primary text-uppercase mb-1">Total de Chaves</div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">{{ total_chaves }}</div>
+                    </div>
+                    <div class="col-auto"><i class="bi bi-key-fill fs-2 text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs fw-bold text-success text-uppercase mb-1">Disponíveis</div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">{{ chaves_disponiveis }}</div>
+                    </div>
+                    <div class="col-auto"><i class="bi bi-door-open-fill fs-2 text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs fw-bold text-info text-uppercase mb-1">Emprestadas</div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">{{ chaves_emprestadas_count }}</div>
+                    </div>
+                    <div class="col-auto"><i class="bi bi-door-closed-fill fs-2 text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs fw-bold text-danger text-uppercase mb-1">Atrasadas</div>
+                        <div class="h5 mb-0 fw-bold text-gray-800">{{ chaves_atrasadas_count }}</div>
+                    </div>
+                    <div class="col-auto"><i class="bi bi-clock-history fs-2 text-gray-300"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Últimas Atividades</h6></div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    {% for emprestimo in ultimas_atividades %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ emprestimo.chave.descricao }}</strong> para {{ emprestimo.pessoa.nome }}
+                            <small class="d-block text-muted">{{ emprestimo.data_retirada|date:"d/m/Y H:i" }}</small>
+                        </div>
+                        {% if emprestimo.data_devolucao %}
+                            <span class="badge bg-secondary">Devolvido</span>
+                        {% else %}
+                            <span class="badge bg-info">Emprestado</span>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item">Nenhuma atividade recente.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3"><h6 class="m-0 fw-bold text-danger">Principais Chaves Atrasadas</h6></div>
+            <div class="card-body">
+                 <ul class="list-group list-group-flush">
+                    {% for emprestimo in emprestimos_atrasados %}
+                    <li class="list-group-item">
+                        <strong>{{ emprestimo.chave.descricao }}</strong> com {{ emprestimo.pessoa.nome }}
+                        <small class="d-block">Devolução prevista para: {{ emprestimo.previsao_devolucao|date:"d/m/Y H:i" }}</small>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item">Nenhuma chave atrasada no momento.</li>
+                    {% endfor %}
+                 </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

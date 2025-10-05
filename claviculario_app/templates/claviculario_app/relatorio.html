@@ -1,0 +1,126 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h2 class="mb-4">Relatório de Empréstimos</h2>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label for="{{ form.pessoa.id_for_label }}" class="form-label">{{ form.pessoa.label }}</label>
+                {{ form.pessoa }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.chave.id_for_label }}" class="form-label">{{ form.chave.label }}</label>
+                {{ form.chave }}
+            </div>
+
+            <div class="col-md-4">
+                <label for="{{ form.data_inicio.id_for_label }}" class="form-label">{{ form.data_inicio.label }}</label>
+                {{ form.data_inicio }}
+            </div>
+            <div class="col-md-4">
+                <label for="{{ form.data_fim.id_for_label }}" class="form-label">{{ form.data_fim.label }}</label>
+                {{ form.data_fim }}
+            </div>
+            <div class="col-md-2">
+                <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                {{ form.status }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    </div>
+
+<div class="mb-3 d-flex justify-content-end">
+    <a href="{% url 'exportar_relatorio_csv' %}?{{ request.GET.urlencode }}" class="btn btn-outline-secondary me-2">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar para CSV
+    </a>
+    <a href="{% url 'exportar_relatorio_excel' %}?{{ request.GET.urlencode }}" class="btn btn-outline-success">
+        <i class="bi bi-file-earmark-excel me-1"></i> Exportar para Excel
+    </a>
+</div>
+<div class="card shadow-sm">
+    </div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Chave</th>
+                        <th>Responsável</th>
+                        <th>CPF/SARAN</th>
+                        <th>Data Retirada</th>
+                        <th>Data Devolução</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emprestimo in emprestimos_page %}
+                    <tr>
+                        <td>{{ emprestimo.chave.descricao }}</td>
+                        <td>{{ emprestimo.pessoa.nome }}</td>
+                        <td>{{ emprestimo.pessoa.cpf_saran }}</td>
+                        <td>{{ emprestimo.data_retirada|date:"d/m/y H:i" }}</td>
+                        <td>
+                            {% if emprestimo.data_devolucao %}
+                                {{ emprestimo.data_devolucao|date:"d/m/y H:i" }}
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Pendente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center p-4">Nenhum registro encontrado para os filtros selecionados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if emprestimos_page.has_other_pages %}
+        <div class="card-footer d-flex justify-content-end">
+            <nav aria-label="Navegação de páginas">
+                <ul class="pagination mb-0">
+                    {% if emprestimos_page.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page={{ emprestimos_page.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Anterior</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                    {% endif %}
+
+                    {% for page_num in emprestimos_page.paginator.get_elided_page_range %}
+                        {% if emprestimos_page.number == page_num %}
+                            <li class="page-item active" aria-current="page">
+                                <span class="page-link">
+                                    {{ page_num }}
+                                </span>
+                            </li>
+                        {% elif page_num == emprestimos_page.paginator.ELLIPSIS %}
+                            <li class="page-item disabled">
+                                <span class="page-link">
+                                    {{ page_num }}
+                                </span>
+                            </li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="?page={{ page_num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ page_num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if emprestimos_page.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ emprestimos_page.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Próxima</a></li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">Próxima</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

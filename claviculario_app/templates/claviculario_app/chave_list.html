@@ -1,0 +1,121 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+{% if perms.claviculario_app.add_chave %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="m-0">Gestão de Chaves</h1>
+    <a href="{% url 'chave_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>Adicionar Nova Chave
+    </a>
+</div>
+{% else %}
+<h1 class="mb-4">Chaves Cadastradas</h1>
+{% endif %}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Descrição da Chave</th>
+                        <th>Local</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for chave in chaves_page %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'chave_historico' chave.pk %}">
+                                {{ chave.descricao }}
+                            </a>
+                        </td>
+                        <td>{{ chave.local.nome }}</td>
+                        <td class="text-center">
+                            {% if chave.disponivel %}
+                                <span class="badge bg-success">Disponível</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Emprestada</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if perms.claviculario_app.change_chave %}
+                            <a href="{% url 'chave_update' chave.pk %}" class="btn btn-sm btn-outline-warning me-1">
+                                <i class="bi bi-pencil-fill"></i> Editar
+                            </a>
+                            {% endif %}
+                            {% if perms.claviculario_app.delete_chave %}
+                            <a href="{% url 'chave_desativar' chave.pk %}" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash-fill"></i> Desativar
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">Nenhuma chave cadastrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% if chaves_page.has_other_pages %}
+    <div class="card-footer d-flex justify-content-end">
+        <nav aria-label="Navegação de páginas">
+            <ul class="pagination mb-0">
+                {% if chaves_page.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ chaves_page.previous_page_number }}">
+                            Anterior
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Anterior
+                        </span>
+                    </li>
+                {% endif %}
+                {% for page_num in chaves_page.paginator.get_elided_page_range %}
+                    {% if chaves_page.number == page_num %}
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">
+                                {{ page_num }}
+                            </span>
+                        </li>
+                    {% elif page_num == chaves_page.paginator.ELLIPSIS %}
+                        <li class="page-item disabled">
+                            <span class="page-link">
+                                {{ page_num }}
+                            </span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_num }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                {% if chaves_page.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ chaves_page.next_page_number }}">
+                            Próxima
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            Próxima
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}
