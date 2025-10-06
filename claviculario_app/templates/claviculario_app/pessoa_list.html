@@ -42,8 +42,8 @@
                     </a>
                     {% endif %}
                     {% if perms.claviculario_app.delete_pessoa %}
-                    <a href="{% url 'pessoa_delete' pessoa.pk %}" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash-fill"></i> Excluir
+                    <a href="{% url 'pessoa_desativar' pessoa.pk %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-trash-fill"></i> Desativar
                     </a>
                     {% endif %}
                 </td>

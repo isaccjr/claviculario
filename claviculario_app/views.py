@@ -8,15 +8,14 @@ from .models import Emprestimo, Chave, Pessoa, Local
 from .forms import EmprestimoForm, RelatorioForm, PessoaForm, ChaveForm, LocalForm
 from datetime import timedelta
 from django.contrib.auth.decorators import login_required, permission_required
+
+# Para as exportações
 import csv
 from django.http import HttpResponse
 from openpyxl import Workbook
 
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-
-
+from .mixins import BaseCreateView,BaseDesativarView,BaseListView,BaseUpdateView
+from .mixins import BasePessoaView,BaseChaveView,BaseLocalView
 
 @login_required
 def view_retirada(request):
@@ -248,77 +247,29 @@ def dashboard(request):
 #------------------------------------------------------------------
 #VIEW PARA SERVIR COMO API DE FILTRO DE CHAVES
 
-# claviculario_app/views.py
 
-# --- NOVAS CLASS-BASED VIEWS PARA O CRUD DE PESSOAS ---
+# --- CLASS-BASED VIEWS PARA O CRUD DE PESSOAS ---
 
-class PessoaListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class PessoaListView(BasePessoaView, BaseListView):
+    queryset = BasePessoaView.model.objects.filter(ativa=True).order_by('nome')
+
+class PessoaCreateView(BasePessoaView, BaseCreateView):
+    title = 'Adicionar Nova Pessoa'
+
+class PessoaUpdateView(BasePessoaView, BaseUpdateView):
+    title = 'Editar Pessoa: {objeto.nome}'
+
+class PessoaDesativarView(BaseDesativarView):
     model = Pessoa
-    template_name = 'claviculario_app/pessoa_list.html'
-    context_object_name = 'pessoas_page'
-    paginate_by = 15
-    permission_required = 'claviculario_app.view_pessoa'
-
-    def get_queryset(self):
-        return Pessoa.objects.filter(ativa=True).order_by('nome')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['pagina_ativa'] = 'pessoas'
-        return context
-
-
-class PessoaCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
-    model = Pessoa
-    form_class = PessoaForm
-    template_name = 'claviculario_app/pessoa_form.html'
-    success_url = reverse_lazy('pessoa_list')
-    permission_required = 'claviculario_app.add_pessoa'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = 'Adicionar Nova Pessoa'
-        context['pagina_ativa'] = 'pessoas'
-        return context
-    
+    pagina_ativa = 'pessoas'
+    success_message = "A Pessoa '{objeto.nome}' foi desativada com sucesso."
     def form_valid(self, form):
-        messages.success(self.request, 'Pessoa cadastrada com sucesso!')
+        pessoa = self.get_object()
+        if pessoa.emprestimos.filter(data_devolucao__isnull=True).exists():
+            messages.error(self.request, f"A pessoa '{pessoa.nome}' não pode ser desativada pois possui chaves pendentes.")
+            return redirect('pessoa_list')
         return super().form_valid(form)
 
-
-class PessoaUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
-    model = Pessoa
-    form_class = PessoaForm
-    template_name = 'claviculario_app/pessoa_form.html'
-    success_url = reverse_lazy('pessoa_list')
-    permission_required = 'claviculario_app.change_pessoa'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['title'] = f'Editar Pessoa: {self.object.nome}'
-        context['pagina_ativa'] = 'pessoas'
-        return context
-
-    def form_valid(self, form):
-        messages.success(self.request, 'Dados da pessoa atualizados com sucesso!')
-        return super().form_valid(form)
-
-
-class PessoaDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
-    model = Pessoa
-    template_name = 'claviculario_app/pessoa_confirm_delete.html'
-    success_url = reverse_lazy('pessoa_list')
-    permission_required = 'claviculario_app.delete_pessoa'
-    
-    def form_valid(self, form):
-        messages.success(self.request, f"Pessoa '{self.object.nome}' excluída com sucesso.")
-        return super().form_valid(form)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['pagina_ativa'] = 'pessoas'
-        return context
-    
 @login_required
 def filtrar_chaves_por_local(request):
     local_id = request.GET.get('local_id')
@@ -353,110 +304,27 @@ def pessoa_historico(request, pk):
 #------------------------------------------------------------------
 # VIEWS DE CHAVES
 #------------------------------------------------------------------
+class ChaveListView(BaseChaveView, BaseListView):
+    queryset = BaseChaveView.model.objects.filter(ativa=True).select_related('local').order_by('local__nome', 'descricao')
 
-# VIEW PARA LISTAR CHAVES
-# claviculario_app/views.py
+class ChaveCreateView(BaseChaveView, BaseCreateView):
+    title = 'Adicionar Nova Chave'
+
+class ChaveUpdateView(BaseChaveView, BaseUpdateView):
+    title = 'Editar Chave: {objeto.descricao}'
+
+class ChaveDesativarView(BaseDesativarView):
+    model = Chave # <-- Definimos o model explicitamente
+    pagina_ativa = 'chaves'
+    success_message = "A Chave '{objeto.descricao}' foi desativada com sucesso."
+    def form_valid(self, form):
+        chave = self.get_object()
+        if not chave.disponivel:
+            messages.error(self.request, f"A chave '{chave.descricao}' não pode ser desativada pois está emprestada.")
+            return redirect('chave_list')
+        return super().form_valid(form)
 
 @permission_required('claviculario_app.view_chave', raise_exception=True)
-def chave_list(request):
-    print("\n--- INICIANDO DEBUG DA VIEW chave_list ---")
-
-    # Passo 1: Verificando o total de chaves no banco
-    total_chaves = Chave.objects.count()
-    print(f"[PASSO 1] Total de chaves no banco: {total_chaves}")
-
-    # Passo 2: Aplicando o filtro 'ativa=True'
-    chaves_list = Chave.objects.filter(ativa=True).select_related('local').order_by('local__nome', 'descricao')
-    print(f"[PASSO 2] Chaves encontradas após filtro 'ativa=True': {chaves_list.count()}")
-
-    # Passo 3: Criando o objeto Paginator
-    paginator = Paginator(chaves_list, 15)
-    print(f"[PASSO 3] Objeto Paginator criado. Total de páginas: {paginator.num_pages}")
-
-    # Passo 4: Pegando o número da página da URL
-    page_number = request.GET.get('page')
-    print(f"[PASSO 4] Número da página solicitado na URL: '{page_number}'")
-
-    # Passo 5: Pegando o objeto da página
-    chaves_page = paginator.get_page(page_number)
-    print(f"[PASSO 5] Objeto de página ('chaves_page') criado para a página: {chaves_page.number}")
-    
-    # Passo 6: Verificando quantos itens estão na página final que será enviada ao template
-    print(f"[PASSO 6] A página final ('chaves_page') tem {len(chaves_page)} itens.")
-    print("--- FIM DO DEBUG ---\n")
-
-    contexto = {
-        'chaves_page': chaves_page,
-        'pagina_ativa': 'chaves'
-    }
-    return render(request, 'claviculario_app/chave_list.html', contexto)
-# VIEW PARA CRIAR UMA NOVA CHAVE
-@permission_required('claviculario_app.add_chave', raise_exception=True)
-def chave_create(request):
-    if request.method == 'POST':
-        form = ChaveForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Chave cadastrada com sucesso!')
-            return redirect('chave_list')
-    else:
-        form = ChaveForm()
-    
-    contexto = {
-        'form': form,
-        'title': 'Adicionar Nova Chave',
-        'pagina_ativa': 'chaves'
-    }
-    return render(request, 'claviculario_app/chave_form.html', contexto)
-    
-# VIEW PARA ATUALIZAR UMA CHAVE EXISTENTE
-@permission_required('claviculario_app.change_chave', raise_exception=True)
-def chave_update(request, pk):
-    chave = get_object_or_404(Chave, pk=pk)
-    if request.method == 'POST':
-        form = ChaveForm(request.POST, instance=chave)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Chave atualizada com sucesso!')
-            return redirect('chave_list')
-    else:
-        form = ChaveForm(instance=chave)
-    
-    contexto = {
-        'form': form,
-        'title': f'Editar Chave: {chave.descricao}',
-        'pagina_ativa': 'chaves'
-    }
-    return render(request, 'claviculario_app/chave_form.html', contexto)
-
-# VIEW PARA EXCLUIR UMA CHAVE
-@permission_required('claviculario_app.delete_chave', raise_exception=True)
-def chave_desativar(request, pk):
-    chave = get_object_or_404(Chave, pk=pk)
-    
-    # REGRA DE SEGURANÇA: Não permite excluir uma chave que está emprestada
-    if not chave.disponivel:
-        messages.error(request, f"A chave '{chave.descricao}' não pode ser excluída pois está atualmente emprestada.")
-        return redirect('chave_list')
-
-    # Se o formulário de confirmação foi enviado (método POST)
-    if request.method == 'POST':
-        nome_chave = chave.descricao
-        chave.ativa = False
-        chave.save()
-        messages.success(request, f"Chave '{nome_chave}' excluída com sucesso.")
-        return redirect('chave_list')
-    
-    # Se for a primeira vez que acessa (método GET), apenas mostra a página de confirmação
-    contexto = {
-        'chave': chave,
-        'pagina_ativa': 'chaves'
-    }
-    return render(request, 'claviculario_app/chave_confirm_desativar.html', contexto)
-
-
-@permission_required('claviculario_app.view_chave', raise_exception=True)
-
 def chave_historico(request, pk):
     chave = get_object_or_404(Chave, pk=pk)
     emprestimos_list = chave.emprestimos.select_related('pessoa').order_by('-data_retirada')
@@ -472,81 +340,29 @@ def chave_historico(request, pk):
     }
     return render(request, 'claviculario_app/chave_historico.html', contexto)
 
+#------------------------------------------------------------------
+# VIEWS DE LOCAIS
+#------------------------------------------------------------------
 
-# VIEW PARA LISTAR LOCAIS
-@permission_required('claviculario_app.view_local', raise_exception=True)
-def local_list(request):
-    locais_list = Local.objects.filter(ativa=True).order_by('nome')
-    contexto = {
-        'locais_page': paginador(request,locais_list),
-        'pagina_ativa': 'locais'
-    }
-    return render(request, 'claviculario_app/local_list.html', contexto)
+class LocalListView(BaseLocalView, BaseListView):
+    queryset = BaseLocalView.model.objects.filter(ativa=True).order_by('nome')
 
-# VIEW PARA CRIAR UM NOVO LOCAL
-@permission_required('claviculario_app.add_local', raise_exception=True)
-def local_create(request):
-    if request.method == 'POST':
-        form = LocalForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Local cadastrado com sucesso!')
+class LocalCreateView(BaseLocalView, BaseCreateView):
+    title = 'Adicionar Novo Local'
+
+class LocalUpdateView(BaseLocalView, BaseUpdateView):
+    title = 'Editar Local: {objeto.nome}'
+
+class LocalDesativarView(BaseDesativarView):
+    model = Local # <-- Definimos o model explicitamente
+    pagina_ativa = 'locais'
+    success_message = "O Local '{objeto.nome}' foi desativado com sucesso."
+    def form_valid(self, form):
+        local = self.get_object()
+        if local.chaves.filter(ativa=True).exists():
+            messages.error(self.request, f"O local '{local.nome}' não pode ser desativado pois ainda existem chaves ativas associadas a ele.")
             return redirect('local_list')
-    else:
-        form = LocalForm()
-    
-    contexto = {
-        'form': form,
-        'title': 'Adicionar Novo Local',
-        'pagina_ativa': 'locais'
-    }
-    return render(request, 'claviculario_app/local_form.html', contexto)
-
-# VIEW PARA ATUALIZAR UM LOCAL EXISTENTE
-@permission_required('claviculario_app.change_local', raise_exception=True)
-def local_update(request, pk):
-    local = get_object_or_404(Local, pk=pk)
-    if request.method == 'POST':
-        form = LocalForm(request.POST, instance=local)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Local atualizado com sucesso!')
-            return redirect('local_list')
-    else:
-        form = LocalForm(instance=local)
-    
-    contexto = {
-        'form': form,
-        'title': f'Editar Local: {local.nome}',
-        'pagina_ativa': 'locais'
-    }
-    return render(request, 'claviculario_app/local_form.html', contexto)
-
-# claviculario_app/views.py
-
-@permission_required('claviculario_app.delete_local', raise_exception=True)
-def local_desativar(request, pk):
-    local = get_object_or_404(Local, pk=pk)
-    
-    # REGRA DE SEGURANÇA: Verifica se existem chaves ATIVAS associadas a este local.
-    # Usamos o 'related_name' 'chaves' que definimos no modelo Chave.
-    if local.chaves.filter(ativa=True).exists():
-        messages.error(request, f"O local '{local.nome}' não pode ser desativado pois ainda existem chaves ativas associadas a ele.")
-        return redirect('local_list')
-
-    if request.method == 'POST':
-        local.ativa = False
-        local.save()
-        messages.success(request, f"Local '{local.nome}' desativado com sucesso.")
-        return redirect('local_list')
-    
-    contexto = {
-        'local': local,
-        'pagina_ativa': 'locais'
-    }
-    return render(request, 'claviculario_app/local_confirm_desativar.html', contexto)
-
-
+        return super().form_valid(form)
 # LÓGICA DE FILTRO REUTILIZÁVEL (FUNÇÃO AUXILIAR)
 # claviculario_app/views.py
 
@@ -652,3 +468,4 @@ def exportar_relatorio_excel(request):
         
     wb.save(response)
     return response
+

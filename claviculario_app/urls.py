@@ -19,24 +19,23 @@ urlpatterns = [
     path('pessoas/', views.PessoaListView.as_view(), name='pessoa_list'),
     path('pessoas/nova/', views.PessoaCreateView.as_view(), name='pessoa_create'),
     path('pessoas/<int:pk>/editar/', views.PessoaUpdateView.as_view(), name='pessoa_update'),
-    path('pessoas/<int:pk>/excluir/', views.PessoaDeleteView.as_view(), name='pessoa_delete'),
+    path('pessoas/<int:pk>/desativar/', views.PessoaDesativarView.as_view(), name='pessoa_desativar'),
     path('pessoas/<int:pk>/historico/', views.pessoa_historico, name='pessoa_historico'),
 
     #Páginas de chaves
-    path('chaves/', views.chave_list, name='chave_list'),
-    path('chaves/nova/', views.chave_create, name='chave_create'),
-    path('chaves/<int:pk>/editar/', views.chave_update, name='chave_update'),
-    path('chaves/<int:pk>/desativar/', views.chave_desativar, name='chave_desativar'),
+    path('chaves/', views.ChaveListView.as_view(), name='chave_list'),
+    path('chaves/nova/', views.ChaveCreateView.as_view(), name='chave_create'),
+    path('chaves/<int:pk>/editar/', views.ChaveUpdateView.as_view(), name='chave_update'),
+    path('chaves/<int:pk>/desativar/', views.ChaveDesativarView.as_view(), name='chave_desativar'),
     path('chaves/<int:pk>/historico/', views.chave_historico, name='chave_historico'),
 
-
     #Página de locais
-    path('locais/', views.local_list, name='local_list'),
-    path('locais/<int:pk>/editar/', views.local_update, name='local_update'),
-    path('locais/novo/', views.local_create, name='local_create'),
-    path('locais/<int:pk>/editar/', views.local_update, name='local_update'),
-    path('locais/<int:pk>/desativar/', views.local_desativar, name='local_desativar'),
+    path('locais/', views.LocalListView.as_view(), name='local_list'),
+    path('locais/novo/', views.LocalCreateView.as_view(), name='local_create'),
+    path('locais/<int:pk>/editar/', views.LocalUpdateView.as_view(), name='local_update'),
+    path('locais/<int:pk>/desativar/', views.LocalDesativarView.as_view(), name='local_desativar'),
 
+    #Página de emprestimos e relatório de emprestimos 
     path('retirada/', views.view_retirada, name='view_retirada'),
     path('devolucao/', views.view_devolucao, name='view_devolucao'),
     path('emprestimo/<int:emprestimo_id>/devolver/', views.registrar_devolucao, name='registrar_devolucao'),
