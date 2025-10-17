@@ -1,0 +1,68 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Importar Dados em Massa</h1>
+<p class="lead mb-4">Use esta página para cadastrar múltiplas pessoas ou chaves de uma só vez usando uma planilha Excel.</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header"><h5 class="my-0 fw-normal">Importar Pessoas</h5></div>
+            <div class="card-body">
+                <p><strong>Siga os 3 passos:</strong></p>
+                <ol>
+                    <li>Baixe o arquivo de template.</li>
+                    <li>Preencha a planilha com os dados das pessoas (colunas: nome_completo, email, empresa, cpf_saran, pin).</li>
+                    <li>Faça o upload do arquivo preenchido.</li>
+                </ol>
+                <a href="{% url 'download_template_pessoas' %}" class="btn btn-secondary mb-3">
+                    <i class="bi bi-download me-2"></i>1. Baixar Template de Pessoas
+                </a>
+
+                <hr>
+                
+                <form action="{% url 'importar_pessoas' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="file_pessoas" class="form-label"><strong>3. Enviar arquivo preenchido:</strong></label>
+                        <input class="form-control" type="file" name="arquivo_excel" id="file_pessoas" accept=".xlsx" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-2"></i>Enviar Pessoas
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header"><h5 class="my-0 fw-normal">Importar Chaves</h5></div>
+            <div class="card-body">
+                <p><strong>Siga os 3 passos:</strong></p>
+                <ol>
+                    <li>Baixe o arquivo de template.</li>
+                    <li>Preencha a planilha (colunas: descricao_chave, nome_local).</li>
+                    <li>Faça o upload do arquivo preenchido.</li>
+                </ol>
+                <a href="{% url 'download_template_chaves' %}" class="btn btn-secondary mb-3">
+                    <i class="bi bi-download me-2"></i>1. Baixar Template de Chaves
+                </a>
+
+                <hr>
+
+                <form action="{% url 'importar_chaves' %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="file_chaves" class="form-label"><strong>3. Enviar arquivo preenchido:</strong></label>
+                        <input class="form-control" type="file" name="arquivo_excel" id="file_chaves" accept=".xlsx" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-2"></i>Enviar Chaves
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

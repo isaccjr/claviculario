@@ -1,21 +1,37 @@
-# claviculario_app/views.py
-from django.core.paginator import Paginator
-from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.utils import timezone
-from .models import Emprestimo, Chave, Pessoa, Local
-from .forms import EmprestimoForm, RelatorioForm, PessoaForm, ChaveForm, LocalForm
+
 from datetime import timedelta
+from datetime import datetime
+import traceback
+
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy
+from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.paginator import Paginator
+from django.utils import timezone
+from django.contrib.auth.models import User # Importa o modelo User
+from django.views.generic import ListView, CreateView, UpdateView # Importa as CBVs do Django
 
-# Para as exportações
+# Imports para Geração de Relatórios
 import csv
-from django.http import HttpResponse
 from openpyxl import Workbook
+import pandas as pd
+from django.db.models import Count, F
 
-from .mixins import BaseCreateView,BaseDesativarView,BaseListView,BaseUpdateView
-from .mixins import BasePessoaView,BaseChaveView,BaseLocalView
+from django.contrib.auth.mixins import AccessMixin
+# IMPORTAÇÃO DOS NOSSOS MIXINS CUSTOMIZADOS
+from .mixins import (
+    LoginRequiredMixin,PaginaAtivaMixin, BaseListView, BaseCreateView, BaseUpdateView, BaseDesativarView,
+    BasePessoaView, BaseChaveView, BaseLocalView
+)
+
+# Imports dos Modelos e Formulários
+from .models import Emprestimo, Chave, Pessoa, Local
+from .forms import (
+    EmprestimoForm, RelatorioForm, PessoaForm, ChaveForm, LocalForm,
+    CustomUserCreationForm, CustomUserChangeForm # Importa os novos formulários de usuário
+)
 
 @login_required
 def view_retirada(request):
@@ -469,3 +485,326 @@ def exportar_relatorio_excel(request):
     wb.save(response)
     return response
 
+
+# VIEW PARA A PÁGINA DE IMPORTAÇÃO
+@permission_required('claviculario_app.add_pessoa', raise_exception=True) # Só gerentes podem importar
+def importar_dados_page(request):
+    contexto = {
+        'pagina_ativa': 'importar'
+    }
+    return render(request, 'claviculario_app/importar_dados_page.html', contexto)
+
+
+# VIEW PARA GERAR E FAZER O DOWNLOAD DO TEMPLATE DE PESSOAS
+@permission_required('claviculario_app.add_pessoa', raise_exception=True)
+def download_template_pessoas(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="template_pessoas.xlsx"'
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pessoas"
+    
+    # Define os cabeçalhos (nomes de coluna sem espaços ou acentos para facilitar)
+    headers = ['nome_completo', 'empresa', 'cpf_saran', 'pin']
+    ws.append(headers)
+    
+    wb.save(response)
+    return response
+
+# VIEW PARA GERAR E FAZER O DOWNLOAD DO TEMPLATE DE CHAVES
+@permission_required('claviculario_app.add_chave', raise_exception=True)
+def download_template_chaves(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="template_chaves.xlsx"'
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Chaves"
+    
+    headers = ['descricao_chave', 'nome_local']
+    ws.append(headers)
+    
+    wb.save(response)
+    return response
+
+
+@permission_required('claviculario_app.add_pessoa', raise_exception=True)
+def importar_pessoas(request):
+    if request.method == 'POST':
+        arquivo = request.FILES.get('arquivo_excel')
+        if not arquivo or not arquivo.name.endswith('.xlsx'):
+            messages.error(request, "Por favor, envie um arquivo Excel (.xlsx) válido.")
+            return redirect('importar_dados_page')
+
+        try:
+            df = pd.read_excel(arquivo)
+            # Verifica se as colunas necessárias existem
+            colunas_necessarias = ['nome_completo', 'cpf_saran', 'pin']
+            if not all(coluna in df.columns for coluna in colunas_necessarias):
+                messages.error(request, f"O arquivo enviado não contém as colunas necessárias: {colunas_necessarias}")
+                return redirect('importar_dados_page')
+
+            criados, ignorados, conflitos = 0, 0, []
+
+            for index, row in df.iterrows():
+                cpf_saran = str(row['cpf_saran']).strip()
+                nome = str(row['nome_completo']).strip()
+                pin = str(row['pin']).strip()
+
+                if not cpf_saran or not nome or not pin:
+                    continue # Ignora linhas com dados essenciais faltando
+
+                pessoa_existente = Pessoa.objects.filter(cpf_saran=cpf_saran).first()
+
+                if pessoa_existente:
+                    if pessoa_existente.nome != nome:
+                        conflitos.append(f"CPF/SARAN {cpf_saran}: Nome no sistema '{pessoa_existente.nome}', nome na planilha '{nome}'. Nenhum dado foi alterado.")
+                    ignorados += 1
+                else:
+                    nova_pessoa = Pessoa(
+                        nome=nome,
+                        cpf_saran=cpf_saran,
+                        empresa=row.get('empresa'),
+                    )
+                    nova_pessoa.set_pin(pin)
+                    nova_pessoa.save()
+                    criados += 1
+            
+            messages.success(request, f"Importação de pessoas concluída! {criados} pessoas criadas, {ignorados} já existentes ignoradas.")
+            if conflitos:
+                messages.warning(request, f"Atenção: {len(conflitos)} registros apresentaram conflito de nome e não foram atualizados. Verifique os dados.")
+                # Opcional: mostrar os detalhes dos conflitos
+                # for conflito in conflitos:
+                #     messages.info(request, conflito)
+
+        except Exception as e:
+            messages.error(request, f"Ocorreu um erro ao processar o arquivo: {e}")
+
+    return redirect('importar_dados_page')
+
+
+# NOVA VIEW PARA PROCESSAR A IMPORTAÇÃO DE CHAVES
+@permission_required('claviculario_app.add_chave', raise_exception=True)
+def importar_chaves(request):
+    if request.method == 'POST':
+        arquivo = request.FILES.get('arquivo_excel')
+        if not arquivo or not arquivo.name.endswith('.xlsx'):
+            messages.error(request, "Por favor, envie um arquivo Excel (.xlsx) válido.")
+            return redirect('importar_dados_page')
+
+        try:
+            df = pd.read_excel(arquivo)
+            colunas_necessarias = ['descricao_chave', 'nome_local']
+            if not all(coluna in df.columns for coluna in colunas_necessarias):
+                messages.error(request, f"O arquivo enviado não contém as colunas necessárias: {colunas_necessarias}")
+                return redirect('importar_dados_page')
+
+            criadas, ignoradas = 0, 0
+            
+            for index, row in df.iterrows():
+                descricao = str(row['descricao_chave']).strip()
+                nome_local = str(row['nome_local']).strip()
+
+                if not descricao or not nome_local:
+                    continue
+
+                if Chave.objects.filter(descricao=descricao).exists():
+                    ignoradas += 1
+                    continue
+                
+                # Procura pelo local, se não existir, cria um novo (get_or_create)
+                local, local_criado = Local.objects.get_or_create(
+                    nome=nome_local,
+                    defaults={'ativa': True} # Define 'ativa' como True se criar um novo
+                )
+                
+                Chave.objects.create(descricao=descricao, local=local)
+                criadas += 1
+            
+            messages.success(request, f"Importação de chaves concluída! {criadas} chaves criadas, {ignoradas} já existentes ignoradas.")
+
+        except Exception as e:
+            messages.error(request, f"Ocorreu um erro ao processar o arquivo: {e}")
+
+    return redirect('importar_dados_page')
+
+
+@login_required
+def analytics_data(request):
+    try:
+        # --- 1. CAPTURAR E VALIDAR FILTROS ---
+        start_date_str = request.GET.get('start_date')
+        end_date_str = request.GET.get('end_date')
+        group_by = request.GET.get('group_by', 'day')
+        local_id = request.GET.get('local_id')
+        chave_id = request.GET.get('chave_id')
+
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else timezone.now().date()
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else end_date - timedelta(days=29)
+
+        # --- 2. FILTRAR O CONJUNTO DE DADOS PRINCIPAL ---
+        queryset = Emprestimo.objects.filter(data_retirada__date__gte=start_date, data_retirada__date__lte=end_date)
+        if local_id: queryset = queryset.filter(chave__local_id=local_id)
+        if chave_id: queryset = queryset.filter(chave_id=chave_id)
+
+        # --- 3. GRÁFICO 1: ATRASOS ---
+        devolvidos_qs = queryset.filter(data_devolucao__isnull=False, previsao_devolucao__isnull=False)
+        atrasados = devolvidos_qs.filter(data_devolucao__gt=F('previsao_devolucao')).count()
+        em_dia = devolvidos_qs.count() - atrasados
+        dados_atrasos = {'labels': ['Em Dia', 'Com Atraso'], 'data': [em_dia, atrasados]}
+
+        # --- 4. FUNÇÃO AUXILIAR PARA PROCESSAR OS GRÁFICOS DE SÉRIE ---
+        def processar_agrupamento(qs, date_field):
+            if not qs.exists(): return [], []
+            datas = [timezone.localtime(dt) for dt in qs.values_list(date_field, flat=True) if dt]
+            if not datas: return [], []
+            
+            df = pd.DataFrame(datas, columns=['datetime'])
+            num_dias_no_periodo = (end_date - start_date).days + 1
+            
+            if group_by in ['time_of_day', 'time_of_day_avg']:
+                counts = df['datetime'].dt.hour.value_counts()
+                labels = [f"{h:02d}:00" for h in range(24)]
+                data_total = [counts.get(h, 0) for h in range(24)]
+                data = [total / num_dias_no_periodo for total in data_total] if group_by == 'time_of_day_avg' else data_total
+                return labels, data
+            elif group_by == 'day':
+                counts = df.set_index('datetime').resample('D').size()
+                date_range = pd.date_range(start=start_date, end=end_date, freq='D', tz='America/Sao_Paulo')
+                counts = counts.reindex(date_range, fill_value=0)
+                labels = counts.index.strftime('%d/%m/%Y').tolist()
+                data = counts.values.tolist()
+                return labels, data
+            elif group_by in ['weekday', 'weekday_avg']:
+                counts = df['datetime'].dt.weekday.value_counts()
+                weekday_map = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+                data_total = [counts.get(i, 0) for i in range(7)]
+                if group_by == 'weekday_avg':
+                    num_semanas = max(1, num_dias_no_periodo / 7.0)
+                    data = [total / num_semanas for total in data_total]
+                else:
+                    data = data_total
+                return weekday_map, data
+            elif group_by in ['monthday', 'monthday_avg']:
+                counts = df['datetime'].dt.day.value_counts()
+                labels = [str(i) for i in range(1, 32)]
+                data_total = [counts.get(i, 0) for i in range(1, 32)]
+                if group_by == 'monthday_avg':
+                    num_meses = max(1, (end_date.year - start_date.year) * 12 + end_date.month - start_date.month + 1)
+                    data = [total / num_meses for total in data_total]
+                else:
+                    data = data_total
+                return labels, data
+            return [], []
+
+        # --- 5. PROCESSAR E RETORNAR OS DADOS FINAIS ---
+        retiradas_labels, retiradas_data = processar_agrupamento(queryset, 'data_retirada')
+        devolucoes_labels, devolucoes_data = processar_agrupamento(queryset.filter(data_devolucao__isnull=False), 'data_devolucao')
+
+        # --- A CORREÇÃO ESTÁ AQUI ---
+        # Converte os números do tipo do pandas (int64) para float padrão do Python
+        retiradas_data = [float(x) for x in retiradas_data]
+        devolucoes_data = [float(x) for x in devolucoes_data]
+        
+        labels_finais = retiradas_labels if len(retiradas_labels) >= len(devolucoes_labels) else devolucoes_labels
+        if len(devolucoes_data) < len(labels_finais):
+            devolucoes_data.extend([0] * (len(labels_finais) - len(devolucoes_data)))
+
+        data = {
+            'atrasos': dados_atrasos,
+            'retiradas': {'labels': labels_finais, 'data': retiradas_data},
+            'devolucoes': {'labels': labels_finais, 'data': devolucoes_data},
+        }
+        return JsonResponse(data)
+
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print("="*50, "\nERRO GRAVE NA VIEW analytics_data:\n", error_trace, "\n"+"="*50)
+        return JsonResponse({'error': f"Erro no servidor: {e}", 'traceback': error_trace}, status=500)
+
+@login_required
+# Só gerentes podem ver a página de análise
+@permission_required('claviculario_app.view_emprestimo', raise_exception=True)
+def analytics_page(request):
+    # Precisamos enviar a lista de chaves e locais para os filtros
+    chaves = Chave.objects.filter(ativa=True).order_by('descricao')
+    locais = Local.objects.filter(ativa=True).order_by('nome')
+    
+    contexto = {
+        'chaves': chaves,
+        'locais': locais,
+        'pagina_ativa': 'analise'
+    }
+    return render(request, 'claviculario_app/analytics_page.html', contexto)
+
+
+
+# --- CRUD de Contas de Usuário ---
+# claviculario_app/views.py
+
+class UserListView(LoginRequiredMixin, PaginaAtivaMixin, ListView):
+    model = User
+    template_name = 'claviculario_app/user_list.html'
+    context_object_name = 'usuarios_page'
+    paginate_by = 15
+    pagina_ativa = 'contas'
+    
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            # CORREÇÃO AQUI: Adiciona o filtro para mostrar apenas usuários ativos.
+            return User.objects.filter(is_active=True).order_by('username')
+        return User.objects.none()
+
+class UserCreateView(PaginaAtivaMixin, LoginRequiredMixin, CreateView):
+    model = User
+    form_class = CustomUserCreationForm
+    template_name = 'claviculario_app/user_form.html'
+    success_url = reverse_lazy('user_list')
+    pagina_ativa = 'contas'
+    title = 'Criar Novo Usuário'
+    def form_valid(self, form):
+        messages.success(self.request, 'Usuário criado com sucesso!')
+        return super().form_valid(form)
+
+class UserUpdateView(PaginaAtivaMixin, LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = CustomUserChangeForm
+    template_name = 'claviculario_app/user_form.html'
+    success_url = reverse_lazy('user_list')
+    pagina_ativa = 'contas'
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = f'Editar Usuário: {self.object.username}'
+        return context
+    def form_valid(self, form):
+        messages.success(self.request, 'Usuário atualizado com sucesso!')
+        return super().form_valid(form)
+
+class UserDesativarView(LoginRequiredMixin, AccessMixin, UpdateView):
+    model = User
+    template_name = 'claviculario_app/user_confirm_desativar.html'
+    success_url = reverse_lazy('user_list')
+    fields = ['is_active'] # O único campo que esta view pode modificar
+    
+    # Proteção: apenas superusuários podem desativar outros
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            return self.handle_no_permission()
+        # Não permitir que um superusuário se desative
+        if self.get_object() == request.user:
+            messages.error(request, 'Você não pode desativar sua própria conta.')
+            return redirect('user_list')
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Em vez de um formulário, nós forçamos o valor para False
+        self.object.is_active = False
+        self.object.save()
+        messages.success(self.request, f"O usuário '{self.object.username}' foi desativado com sucesso.")
+        return redirect(self.success_url)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['pagina_ativa'] = 'contas'
+        return context

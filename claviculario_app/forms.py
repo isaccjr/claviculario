@@ -3,6 +3,9 @@
 from django import forms
 from .models import Emprestimo, Chave, Pessoa, Local
 from django.utils import timezone
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User, Group
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 
 
 #FORMULÁRIO PARA CRIAR E EDITAR EMPRESTIMOS 
@@ -184,3 +187,48 @@ class LocalForm(forms.ModelForm):
             if Local.objects.filter(nome=nome).exists():
                 raise forms.ValidationError("Já existe um local com este nome.")
         return nome
+    
+class CustomUserCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        fields = UserCreationForm.Meta.fields + ("email",)
+
+
+# claviculario_app/forms.py
+
+class CustomUserCreationForm(UserCreationForm):
+    """ Formulário para criar um novo usuário. """
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "email")
+
+class CustomUserChangeForm(forms.ModelForm):
+    """ Formulário para editar um usuário e suas permissões (grupos). """
+    # O campo 'groups' permite a seleção múltipla dos grupos disponíveis.
+    grupos = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Funções (Grupos)"
+    )
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'is_active', 'grupos')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se o formulário for para um usuário existente, preenchemos o campo 'grupos'
+        # com os grupos aos quais ele já pertence.
+        if self.instance.pk:
+            self.fields['grupos'].initial = self.instance.groups.all()
+
+    def save(self, commit=True):
+        # A lógica de salvar é customizada: primeiro salvamos o usuário,
+        # depois atualizamos a relação com os grupos.
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+            # O .set() limpa os grupos antigos e adiciona os novos selecionados.
+            user.groups.set(self.cleaned_data['grupos'])
+            self.save_m2m() # Necessário para salvar relações ManyToMany
+        return user

@@ -1,0 +1,139 @@
+{% extends "claviculario_app/base.html" %}
+
+{% block content %}
+<h1 class="mb-4">Painel de Análise de Demanda</h1>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header"><h5 class="my-0 fw-normal">Filtros de Análise</h5></div>
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3"><label for="startDate" class="form-label">Data Início</label><input type="date" id="startDate" class="form-control"></div>
+            <div class="col-md-3"><label for="endDate" class="form-label">Data Fim</label><input type="date" id="endDate" class="form-control"></div>
+            <div class="col-md-3">
+                <label for="groupBy" class="form-label">Agrupar por</label>
+                <select id="groupBy" class="form-select">
+                    <optgroup label="Visão Contínua">
+                        <option value="day" selected>Dia (Calendário)</option>
+                    </optgroup>
+                    <optgroup label="Agregado (Soma Total)">
+                        <option value="time_of_day">Hora do Dia (Total)</option>
+                        <option value="weekday">Dia da Semana (Total)</option>
+                        <option value="monthday">Dia do Mês (Total)</option>
+                    </optgroup>
+                    <optgroup label="Agregado (Média Diária)">
+                        <option value="time_of_day_avg">Hora do Dia (Média)</option>
+                        <option value="weekday_avg">Dia da Semana (Média)</option>
+                        <option value="monthday_avg">Dia do Mês (Média)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="col-md-3"><label for="localFilter" class="form-label">Local</label><select id="localFilter" class="form-select"><option value="" selected>Todos os Locais</option>{% for local in locais %}<option value="{{ local.id }}">{{ local.nome }}</option>{% endfor %}</select></div>
+            <div class="col-md-3"><label for="chaveFilter" class="form-label">Chave</label><select id="chaveFilter" class="form-select"><option value="" selected>Todas as Chaves</option>{% for chave in chaves %}<option value="{{ chave.id }}">{{ chave.descricao }}</option>{% endfor %}</select></div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4"><div class="card shadow-sm h-100"><div class="card-header"><h6 class="my-0 fw-bold text-primary">Devoluções com Atraso</h6></div><div class="card-body d-flex justify-content-center align-items-center"><canvas id="atrasosChart"></canvas></div></div></div>
+    <div class="col-lg-8 mb-4"><div class="card shadow-sm h-100"><div class="card-header"><h6 class="my-0 fw-bold text-primary">Volume de Retiradas</h6></div><div class="card-body"><canvas id="retiradasChart"></canvas></div></div></div>
+    <div class="col-lg-12 mb-4"><div class="card shadow-sm h-100"><div class="card-header"><h6 class="my-0 fw-bold text-primary">Volume de Devoluções</h6></div><div class="card-body"><canvas id="devolucoesChart"></canvas></div></div></div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // SUA IDEIA: Variável para controlar os logs. Mude para 'false' para desativar.
+    const DEBUG = true;
+    if (DEBUG) console.log("--- [FRONTEND-1] SCRIPT INICIADO ---");
+
+    // --- 1. PEGAR REFERÊNCIAS DOS ELEMENTOS ---
+    const startDateEl = document.getElementById('startDate');
+    const endDateEl = document.getElementById('endDate');
+    const groupByEl = document.getElementById('groupBy');
+    const localFilterEl = document.getElementById('localFilter');
+    const chaveFilterEl = document.getElementById('chaveFilter');
+    const atrasosCtx = document.getElementById('atrasosChart')?.getContext('2d');
+    const retiradasCtx = document.getElementById('retiradasChart')?.getContext('2d');
+    const devolucoesCtx = document.getElementById('devolucoesChart')?.getContext('2d');
+    let atrasosChart, retiradasChart, devolucoesChart;
+
+    if (!atrasosCtx || !retiradasCtx || !devolucoesCtx) {
+        if (DEBUG) console.error("ERRO CRÍTICO: Um ou mais elementos <canvas> não foram encontrados.");
+        return;
+    }
+
+    // --- 2. FUNÇÃO PARA ATUALIZAR UM GRÁFICO (COM A CORREÇÃO DO BUG) ---
+    function updateChart(chart, labels, data) {
+        if (!chart) return;
+        if (DEBUG) console.log(` -> [FRONTEND-4] Atualizando gráfico '${chart.canvas.id}'. Labels:`, labels, "Dados:", data);
+        
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        
+        // A VERIFICAÇÃO CRUCIAL QUE ESTAVA FALTANDO
+        if (chart.config.type === 'line' && chart.options.plugins && chart.options.plugins.annotation) {
+            const showAnnotations = groupByEl.value === 'time_of_day' || groupByEl.value === 'time_of_day_avg';
+            chart.options.plugins.annotation.annotations.lineStart.display = showAnnotations;
+            chart.options.plugins.annotation.annotations.lineMid.display = showAnnotations;
+            chart.options.plugins.annotation.annotations.lineEnd.display = showAnnotations;
+        }
+        
+        chart.update();
+        if (DEBUG) console.log(` -> [FRONTEND-5] Gráfico '${chart.canvas.id}' ATUALIZADO.`);
+    }
+
+    // --- 3. FUNÇÃO PRINCIPAL: BUSCAR DADOS E ATUALIZAR TUDO ---
+    async function fetchAndUpdateCharts() {
+        const params = new URLSearchParams({ start_date: startDateEl.value, end_date: endDateEl.value, group_by: groupByEl.value, local_id: localFilterEl.value, chave_id: chaveFilterEl.value });
+        const apiUrl = `/api/analytics-data/?${params.toString()}`;
+        if (DEBUG) console.log("[FRONTEND-2] Buscando dados da API:", apiUrl);
+
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                if (DEBUG) console.error("ERRO DE REDE:", response.status, response.statusText);
+                return;
+            }
+            const data = await response.json();
+            if (DEBUG) console.log("[FRONTEND-3] DADOS JSON RECEBIDOS DO BACKEND:", data);
+
+            updateChart(atrasosChart, data.atrasos.labels, data.atrasos.data);
+            updateChart(retiradasChart, data.retiradas.labels, data.retiradas.data);
+            updateChart(devolucoesChart, data.devolucoes.labels, data.devolucoes.data);
+        } catch (error) {
+            if (DEBUG) console.error("ERRO CRÍTICO no Javascript (fetch/JSON):", error);
+        }
+    }
+
+    // --- 4. INICIALIZAÇÃO DOS GRÁFICOS ---
+    function initializeCharts() {
+        if (DEBUG) console.log("Debug: Inicializando os objetos dos gráficos.");
+        const lineChartOptions = {
+            responsive: true,
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: {
+                annotation: {
+                    annotations: {
+                        lineStart: { type: 'line', xMin: '00:00', xMax: '00:00', borderColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderDash: [6, 6], display: false, label: { content: 'Início', enabled: true, position: 'start', yAdjust: -10 } },
+                        lineMid: { type: 'line', xMin: '12:00', xMax: '12:00', borderColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderDash: [6, 6], display: false, label: { content: 'Meio-dia', enabled: true, position: 'start', yAdjust: -10 } },
+                        lineEnd: { type: 'line', xMin: '23:00', xMax: '23:00', borderColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderDash: [6, 6], display: false, label: { content: 'Fim', enabled: true, position: 'end', yAdjust: -10 } }
+                    }
+                }
+            }
+        };
+        atrasosChart = new Chart(atrasosCtx, { type: 'doughnut', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#198754', '#ffc107'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+        retiradasChart = new Chart(retiradasCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Nº de Retiradas', data: [], borderColor: 'rgba(54, 162, 235, 1)', backgroundColor: 'rgba(54, 162, 235, 0.1)', fill: true, tension: 0.1 }] }, options: lineChartOptions });
+        devolucoesChart = new Chart(devolucoesCtx, { type: 'line', data: { labels: [], datasets: [{ label: 'Nº de Devoluções', data: [], borderColor: 'rgba(25, 135, 84, 1)', backgroundColor: 'rgba(25, 135, 84, 0.1)', fill: true, tension: 0.1 }] }, options: lineChartOptions });
+    }
+
+    // --- 5. CONFIGURAR OS "OUVINTES" DE EVENTOS ---
+    const filters = [startDateEl, endDateEl, groupByEl, localFilterEl, chaveFilterEl];
+    filters.forEach(filter => { filter.addEventListener('change', fetchAndUpdateCharts); });
+
+    // --- 6. EXECUÇÃO INICIAL ---
+    initializeCharts();
+    fetchAndUpdateCharts();
+});
+</script>
+{% endblock scripts %}

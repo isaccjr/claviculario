@@ -3,6 +3,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
+from django.contrib.auth.models import User
 
 class Local(models.Model):
     genero = 'm'
@@ -66,3 +67,21 @@ class Emprestimo(models.Model):
         ordering = ['-data_retirada'] # Ordena pelos mais recentes primeiro
     def __str__(self):
         return f"{self.chave.descricao} para {self.pessoa.nome}"
+    
+class Unidade(models.Model):
+    nome = models.CharField(max_length=100, verbose_name="Nome da Unidade")
+    # O 'owner' é o usuário criador e administrador principal da unidade
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="unidades_criadas")
+    # Campo para o logo customizado
+    logo = models.ImageField(upload_to='logos/', null=True, blank=True, verbose_name="Logo da Unidade")
+    # Campo para o esquema de cores
+    cor_tema = models.CharField(max_length=7, default="#0d6efd", verbose_name="Cor Principal do Tema") # Padrão azul
+    # Relacionamento Many-to-Many para permitir que múltiplos usuários acessem a mesma unidade
+    membros = models.ManyToManyField(User, related_name="unidades_membro", blank=True)
+
+    class Meta:
+        verbose_name = "Unidade"
+        verbose_name_plural = "Unidades"
+
+    def __str__(self):
+        return self.nome

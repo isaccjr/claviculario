@@ -6,11 +6,15 @@ from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     # --- Autenticação ---
-    path('login/', auth_views.LoginView.as_view(
-        template_name='claviculario_app/login.html'
-    ), name='login'),
+    
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
-
+     # ROTA DE REGISTRO
+    
+    # ROTAS PARA GESTÃO DE CONTAS
+    path('contas/', views.UserListView.as_view(), name='user_list'),
+    path('contas/criar/', views.UserCreateView.as_view(), name='user_create'),
+    path('contas/<int:pk>/editar/', views.UserUpdateView.as_view(), name='user_update'),
+    path('contas/<int:pk>/desativar/', views.UserDesativarView.as_view(), name='user_desativar'),
     # --- Rota Principal (Homepage) ---
     # Apenas UMA rota para o caminho vazio (''). Agora ela aponta para a dashboard.
     path('', views.dashboard, name='dashboard'),
@@ -50,6 +54,19 @@ urlpatterns = [
     # --- Exportações
     path('relatorio/exportar/csv/', views.exportar_relatorio_csv, name='exportar_relatorio_csv'),
     path('relatorio/exportar/excel/', views.exportar_relatorio_excel, name='exportar_relatorio_excel'),
+
+     # --- Importação
+    path('importar/', views.importar_dados_page, name='importar_dados_page'),
+    path('importar/template-pessoas/', views.download_template_pessoas, name='download_template_pessoas'),
+    path('importar/template-chaves/', views.download_template_chaves, name='download_template_chaves'),
+    
+    # ---PROCESSAR OS UPLOADS
+    path('importar/processar-pessoas/', views.importar_pessoas, name='importar_pessoas'),
+    path('importar/processar-chaves/', views.importar_chaves, name='importar_chaves'),
+
+    path('analise/', views.analytics_page, name='analytics_page'),
+    # --- API PARA ANALISE DOS DADOS
+    path('api/analytics-data/', views.analytics_data, name='analytics_data'),
 
 
 ]

@@ -37,7 +37,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     'claviculario_app',
+
+    'django.contrib.sites',  # Necessário para o allauth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    # Adicione os provedores que você quer usar:
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.microsoft',
+    # 'allauth.socialaccount.providers.apple', # Apple é mais complexo, vamos deixar para depois
 ]
 
 MIDDLEWARE = [
@@ -48,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -59,7 +70,8 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
-                'django.template.context_processors.request',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request', # <-- ESTA É A PONTE ESSENCIAL
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -108,7 +120,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
 TIME_ZONE = 'America/Sao_Paulo'
 
@@ -132,10 +144,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # URL para onde o @login_required redireciona se o usuário NÃO está logado
-LOGIN_URL = 'login'
+LOGIN_URL = '/accounts/login/'
 
 # URL para onde o usuário é enviado APÓS um login bem-sucedido
 LOGIN_REDIRECT_URL = '/'
 
 # URL para onde o usuário é enviado APÓS o LOGOUT
 LOGOUT_REDIRECT_URL = '/login/'
+
+# CONFIGURAÇÕES DO DJANGO-ALLAUTH
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+SITE_ID = 1 # O allauth usa o "sites framework" do Django
+
+TEMPLATES[0]['OPTIONS']['context_processors'].extend([
+    'django.template.context_processors.request',
+])
+
+
+LOGIN_REDIRECT_URL = '/' # O allauth vai respeitar isso
+LOGOUT_REDIRECT_URL = '/accounts/login/' # E isso também
+
+# Configurações opcionais para personalizar o comportamento
+ACCOUNT_EMAIL_VERIFICATION = "none" # Para começar, não vamos exigir verificação de e-mail
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False # O usuário não precisará criar um nome de usuário
+ACCOUNT_AUTHENTICATION_METHOD = "username_email" # O login será feito com o e-mail
+# Pula a página de confirmação "Continuar" e redireciona direto para o Google
+SOCIALACCOUNT_LOGIN_ON_GET = True
